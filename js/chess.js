@@ -24,9 +24,13 @@ function ChessBoard(){
     whitePiecesEaten: [],
     blackPiecesEaten: [],
     turn: colors[0],
-    inCheck: false
+    whiteInCheck: false,
+    blackInCheck: false,
+    whitePieces: [],
+    blackPieces: []
   });
   this.generateLayout();
+  this.initPieces();
 }
 
 _.extend(ChessBoard.prototype, {
@@ -74,7 +78,12 @@ _.extend(ChessBoard.prototype, {
       for(i = 0; i < positions.length; i++){
         pos = positions[i];
         color = parseInt(pos[1], 10) > 5 ? 'black' : 'white';
-        board.setPos(pos, new window[piece_name](color, pos, board));
+        var piece = new window[piece_name](color, pos, board);
+        board[color + 'Pieces'].push(piece);
+        if(piece.name == 'king'){
+          self[color + 'King'] = piece;
+        }
+        board.setPos(pos, piece);
       }
     });
     
@@ -122,30 +131,86 @@ function ChessPiece(color, pos, board)
 }
 
 _.extend(ChessPiece.prototype, {
+  getEnemyColor: function(color){
+    var my_color = color || this.color;
+    var result = my_color == 'white' ? 'black' : 'white';
+    return result;
+  },
+  isCheckingEnemyKing: function(){
+    var enemy_color   = this.getEnemyColor();
+    var enemy_king    = this.board[enemy_color + 'King'];
+    var checking_king = this.getValidMoves().indexOf(enemy_king.pos);
+    this.board[enemy_color + 'InCheck'] = checking_king;
+    return checking_king;
+  },
+  moveToPos: function(pos){
+    this.moves++;
+    var enemy_color = this.getEnemyColor();
+    if(this.enemyAtPos(pos)){
+      var enemy = this.board.getPos(pos);
+      this.board[enemy_color+'PiecesEaten'].push(enemy);
+      if(enemy == this.board[enemy_color + 'King']){
+        this.board[this.color + 'Won'] = true;
+      }
+      var enemy_pieces = this.board[enemy_color + 'Pieces'];
+      var index = enemy_pieces.indexOf(enemy);
+      if(index >= 0){
+        enemy_pieces.splice(index, 1);
+      }
+    }
+    _.each(this.board.colors, function(color){
+      _.each(this.board[color + 'Pieces'], function(piece){
+        piece.isCheckingEnemyKing();
+      });
+    });
+    this.board.setPos(pos, this);
+    this.board.setPos(this.pos, '');
+    this.pos = pos;
+
+    return this.moves;
+  },
   moveTo: function(pos){
     if(this.isValidPos(pos)){
-      this.moves++;
-      if(this.enemyAtPos(pos)){
-        var enemy = this.board.getPos(pos);
-        var enemy_color = enemy.color;
-        this.board[enemy_color+'PiecesEaten'].push(enemy);
-      }
-      this.board.setPos(pos, this);
-      this.board.setPos(this.pos, '');
-      this.pos = pos;
-      return this.moves;
+      return this.moveToPos(pos);
     }
   },
   enemyAtPos: function(pos, color){
     var result = this.board.getPos(pos);
     var my_color = color || this.color;
-    return(result && result.color != my_color);
+    if(result && result.color != my_color){
+      return result;
+    }
   },
   isValidPos: function(pos){
-    return this.canMoveTo(pos);
+    var valid_moves   = this.getValidMoves();
+    var enemy_color   = this.getEnemyColor();
+    var self          = this;
+    var is_valid_move = this.canMoveTo(pos);
+    if(is_valid_move && this.board[this.color + 'InCheck']){
+      if(this.wouldMoveStopCheck(pos)){
+        return true;
+      }
+      else
+      {
+        return false;
+      }
+    }
+
+    return is_valid_move;
+  },
+  wouldMoveStopCheck: function(move){
+    var virtual_board = _.cloneDeep(this.board);
+    var my_pos = this.pos;
+    var virtual_me = virtual_board.getPos(my_pos);
+    if(virtual_me.canMoveTo(move)){
+      virtual_me.moveToPos(pos);
+      if(!virtual_board[this.color + 'InCheck']){
+        return true;
+      }
+    }
   },
   canMoveTo: function(pos){
-    return(this.getValidMoves().indexOf(pos.toUpperCase()) >= 0);
+    return (valid_moves.indexOf(pos.toUpperCase()) >= 0);
   },
   posMath: function(arg1, arg2){
     var pos = arg1;
@@ -242,7 +307,7 @@ function Bishop(color, pos, board){
 }
 
 _.extend(Bishop.prototype, ChessPiece.prototype, {
-  permutations: [[1, 1], [-1, -1]],
+  permutations: [[1, 1], [-1, 1], [1, -1], [-1, -1]],
   getValidMoves: function(pos, color, board){
     var position     = (pos || this.pos).toUpperCase();
     var my_color     = color || this.color;
@@ -319,6 +384,4 @@ _.extend(Pawn.prototype, ChessPiece.prototype, {
 });
 
 
-board = new ChessBoard();
-board.initPieces();
 
