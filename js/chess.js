@@ -158,15 +158,27 @@ function ChessPiece(color, pos, board)
 }
 
 _.extend(ChessPiece.prototype, {
+  getEnemyKing: function(){
+    return this.board[this.getEnemyColor() + 'King'];
+  },
   getEnemyPieces: function(){
     return this.board[this.getEnemyColor() + 'Pieces'];
   },
   positionSafeFromEnemies: function(pos){
     var result = true;
     _.each(this.getEnemyPieces(), function(piece){
-      if(piece.canMoveTo(pos)){
-        result = false;
-        return result;
+      if(piece.name != 'king'){
+        if(piece.canMoveTo(pos)){
+          result = false;
+          return result;
+        }
+      }
+      else
+      {
+        if(getDistanceBetweenPositions(pos, piece.pos) < 2){
+          result = false;
+          return result;
+        }
       }
     });
 
@@ -444,19 +456,22 @@ function King(color, pos, board){
 _.extend(King.prototype, ChessPiece.prototype, {
   permutations: Queen.prototype.permutations,
   getValidMoves: function(){
-    var enemy_king_pos = this.board[this.getEnemyColor() + 'King'].pos;
+    var enemy_king_pos = this.getEnemyKing().pos;
     var valid_moves =  _.reject(permutatedValidMoves(false).apply(this, arguments), function(pos){
       return getDistanceBetweenPositions(pos, enemy_king_pos) < 2;
     });
     if(!this.moves && !this.myKingChecked()){
       var pos          = this.pos;
       var row_col = this.board.positionToRowCol(pos);
-      var rightClear = true, leftClear = true, new_pos;
+      var rightClear = true, leftClear = true, new_pos, rightMove, leftMove, piece;
       for(var i = 1; i < 3; i++){
         new_pos = this.board.rowColToPosition(row_col[0], row_col[1] + i);
-        if(!this.board.isPosClear(new_pos)){
+        if(!this.board.isPosClear(new_pos) || !this.positionSafeFromEnemies(new_pos)){
           rightClear = false;
           break;
+        }
+        if(i == 2){
+          rightMove = new_pos;
         }
       }
       if(rightClear){
@@ -464,9 +479,10 @@ _.extend(King.prototype, ChessPiece.prototype, {
         for(i = 3; i < 6; i++){
           new_pos = this.board.rowColToPosition(row_col[0], row_col[1] + i);
           if(this.board.isValidPos(new_pos)){
-            var piece = this.board.getPos(new_pos);
+            piece = this.board.getPos(new_pos);
             if(piece && piece.moves && piece.name == 'rooke' && piece.color == this.color){
-              
+              valid_moves.push(rightMove);
+              this.rightMove = rightMove;
             }
           }
           else
@@ -480,6 +496,26 @@ _.extend(King.prototype, ChessPiece.prototype, {
         if(!this.board.isPosClear(new_pos)){
           leftClear = false;
           break;
+        }
+        if(i == 2){
+          leftMove = new_pos;
+        }
+      }
+
+      if(leftClear){
+        for(i = 3; i < 6; i++){
+          new_pos = this.board.rowColToPosition(row_col[0], row_col[1] - i);
+          if(this.board.isValidPos(new_pos)){
+            piece = this.board.getPos(new_pos);
+            if(piece && piece.moves && piece.name == 'rooke' && piece.color == this.color){
+              valid_moves.push(leftMove);
+              this.leftMove = leftMove;
+            }
+          }
+          else
+          {
+            break;
+          }
         }
       }
 
