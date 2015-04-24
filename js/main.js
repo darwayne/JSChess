@@ -35,7 +35,7 @@ angular.module('Chess', [])
           }
           else
           {
-            self.highlightedCells = piece.getValidMoves();
+            self.highlightedCells = piece.getPlayableMoves();
             self.selectedPiece    = piece;
             console.log('2');
           }
@@ -52,7 +52,7 @@ angular.module('Chess', [])
   })
   .filter('cell_position', function(){
     return function(row, col){
-      return(String.fromCharCode(64 + col) + (9 - row));
+      return ChessBoard.prototype.rowColToPosition(row, col);
     };
   })
   .filter('get_piece_name', function($filter){

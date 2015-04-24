@@ -68,6 +68,15 @@ _.extend(ChessBoard.prototype, {
 
     return valid;
   },
+  rowColToPosition: function(row, col){
+    return(String.fromCharCode(64 + col) + (9 - row));
+  },
+  positionToRowCol: function(position){
+    var p = position.toUpperCase();
+    var col = p.charCodeAt(0) - 64;
+    var row = 9 - parseInt(p[1], 10);
+    return[row, col];
+  },
   initPieces: function(){
     var board = this;
     var i,pos, color;
@@ -149,6 +158,20 @@ function ChessPiece(color, pos, board)
 }
 
 _.extend(ChessPiece.prototype, {
+  getEnemyPieces: function(){
+    return this.board[this.getEnemyColor() + 'Pieces'];
+  },
+  positionSafeFromEnemies: function(pos){
+    var result = true;
+    _.each(this.getEnemyPieces(), function(piece){
+      if(piece.canMoveTo(pos)){
+        result = false;
+        return result;
+      }
+    });
+
+    return result;
+  },
   getVirtualBoard: function(){
       var vb = angular.copy(this.board);
       vb.virtual = true;
@@ -247,6 +270,12 @@ _.extend(ChessPiece.prototype, {
     if(result && result.color != my_color){
       return result;
     }
+  },
+  getPlayableMoves: function(){
+    var self = this;
+    return _.reject(this.getValidMoves(), function(move){
+      return !self.isValidPos(move);
+    })
   },
   isValidPos: function(pos){
     var valid_moves   = this.getValidMoves();
@@ -416,9 +445,46 @@ _.extend(King.prototype, ChessPiece.prototype, {
   permutations: Queen.prototype.permutations,
   getValidMoves: function(){
     var enemy_king_pos = this.board[this.getEnemyColor() + 'King'].pos;
-    return _.reject(permutatedValidMoves(false).apply(this, arguments), function(pos){
+    var valid_moves =  _.reject(permutatedValidMoves(false).apply(this, arguments), function(pos){
       return getDistanceBetweenPositions(pos, enemy_king_pos) < 2;
     });
+    if(!this.moves && !this.myKingChecked()){
+      var pos          = this.pos;
+      var row_col = this.board.positionToRowCol(pos);
+      var rightClear = true, leftClear = true, new_pos;
+      for(var i = 1; i < 3; i++){
+        new_pos = this.board.rowColToPosition(row_col[0], row_col[1] + i);
+        if(!this.board.isPosClear(new_pos)){
+          rightClear = false;
+          break;
+        }
+      }
+      if(rightClear){
+
+        for(i = 3; i < 6; i++){
+          new_pos = this.board.rowColToPosition(row_col[0], row_col[1] + i);
+          if(this.board.isValidPos(new_pos)){
+            var piece = this.board.getPos(new_pos);
+            if(piece && piece.moves && piece.name == 'rooke' && piece.color == this.color){
+              
+            }
+          }
+          else
+          {
+            break;
+          }
+        }
+      }
+      for(i = 1; i < 3; i++){
+        new_pos = this.board.rowColToPosition(row_col[0], row_col[1] - i);
+        if(!this.board.isPosClear(new_pos)){
+          leftClear = false;
+          break;
+        }
+      }
+
+    }
+    return valid_moves;
   }
 });
 
@@ -470,14 +536,16 @@ _.extend(Pawn.prototype, ChessPiece.prototype, {
 board = new ChessBoard();
 moves('e2, e3, e7, e6, e1, e2, e8, e7, e2, d3, e7, d6, d3, d4');
 
-function move(from, to){
-  board.getPos(from).moveTo(to);
+function move(from, to, b){
+  b = b || board;
+  b.getPos(from).moveTo(to);
   return move;
 }
-function moves(str){
+function moves(str, b){
+  b = b || board;
   var arr = str.split(', ');
   for(var i = 0; i < arr.length - 1; i+=2){
-    move(arr[i], arr[i+1]);
+    move(arr[i], arr[i+1], b);
   }
 }
 
