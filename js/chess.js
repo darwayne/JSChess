@@ -30,16 +30,16 @@ function positionToCoordinate(pos){
   var position = pos.toUpperCase();
   var x = position.charCodeAt(0) - 65;
   var y = parseInt(position[1], 10);
-  return {x: x, y: y}
+  return {x: x, y: y};
 }
 
 function ChessBoard(){
-  var colors = ['white', 'black'];
+  var colors = ['black', 'white'];
   _.extend(this, {
     colors: colors,
     whitePiecesEaten: [],
     blackPiecesEaten: [],
-    turn: colors[0],
+    turn: 'white',
     whiteInCheck: false,
     blackInCheck: false,
     whitePieces: [],
@@ -311,6 +311,10 @@ _.extend(ChessPiece.prototype, {
             if(my_board.getPos(new_pos)){
               new_pos = null;
             }
+          }
+          else
+          {
+            is_valid = false;
           }
         }
       }while(is_valid && new_pos);
