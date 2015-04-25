@@ -48,7 +48,10 @@
   <body ng-controller='MainCtrl as game' class='invert'>
     <div class='container'>
       <div class='row'>
-        <div class='col-md-6 col-md-offset-4'>
+        <div class='col-md-2'>
+          <button class='btn btn-danger' ng-click='game.resetGame()'>Reset Game</button>
+        </div>
+        <div class='col-md-6 col-md-offset-2'>
           <table class='table' id='chess-board'>
             <tbody>
               <tr ng-repeat='row in [1,2,3,4,5,6,7,8]'>

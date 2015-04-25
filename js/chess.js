@@ -72,7 +72,7 @@ _.extend(ChessBoard.prototype, {
     return(String.fromCharCode(64 + col) + (9 - row));
   },
   positionToRowCol: function(position){
-    var p = position.toUpperCase();
+    var p   = position.toUpperCase();
     var col = p.charCodeAt(0) - 64;
     var row = 9 - parseInt(p[1], 10);
     return[row, col];
@@ -82,10 +82,10 @@ _.extend(ChessBoard.prototype, {
     var i,pos, color;
     var default_positions = {
       Knight: ['b1', 'g1', 'b8', 'g8'],
-      Pawn: [],
-      King: ['e1', 'e8'],
-      Rook: ['a1', 'h1', 'a8', 'h8'],
-      Queen: ['d1', 'd8'],
+      Pawn:   [],
+      King:   ['e1', 'e8'],
+      Rook:   ['a1', 'h1', 'a8', 'h8'],
+      Queen:  ['d1', 'd8'],
       Bishop: ['c1', 'f1', 'c8', 'f8']
     };
     var posMath = ChessPiece.prototype.posMath;
@@ -105,10 +105,8 @@ _.extend(ChessBoard.prototype, {
         color = parseInt(pos[1], 10) > 5 ? 'black' : 'white';
         var piece = new window[piece_name](color, pos, board);
         board[color + 'Pieces'].push(piece);
-        //console.log(piece.name, piece.color);
         if(piece.name == 'king'){
           board[color + 'King'] = piece;
-          //console.log('%s king set', piece.color);
         }
         board.setPos(pos, piece);
       }
@@ -158,6 +156,22 @@ function ChessPiece(color, pos, board)
 }
 
 _.extend(ChessPiece.prototype, {
+  isGameWon: function(){
+    var checkmate = !_.chain(this.getEnemyPieces()).map(function(p){
+      return p.getPlayableMoves().length;
+    }).any().value();
+
+    if(checkmate){
+      this.board[this.color + 'Won'] = true;
+    }
+    return checkmate;
+  },
+  xAxisMath: function(pos, amount){
+    pos         = pos.toUpperCase();
+    var row_col = this.board.positionToRowCol(pos);
+    row_col[1] += amount;
+    return(this.board.rowColToPosition.apply(this.board, row_col));
+  },
   getEnemyKing: function(){
     return this.board[this.getEnemyColor() + 'King'];
   },
@@ -229,29 +243,39 @@ _.extend(ChessPiece.prototype, {
     return checking_king;
   },
   moveToPos: function(pos){
-    var self = this;
+    pos           = pos.toUpperCase();
+    var self      = this;
+    var is_castle = false;
     this.moves++;
     var enemy_color = this.getEnemyColor();
     if(this.enemyAtPos(pos)){
       var enemy = this.board.getPos(pos);
       this.board[enemy_color+'PiecesEaten'].push(enemy);
-      if(enemy == this.board[enemy_color + 'King']){
-        this.board[this.color + 'Won'] = true;
-      }
       var enemy_pieces = this.board[enemy_color + 'Pieces'];
-      var index = enemy_pieces.indexOf(enemy);
-      enemy.captured = true;
-      if(index >= 0){
+      var index        = enemy_pieces.indexOf(enemy);
+      enemy.captured   = true;
+      if(index        >= 0){
         enemy_pieces.splice(index, 1);
       }
     }
+    var old_pos = this.pos;
     this.board.setPos(pos, this);
     this.board.setPos(this.pos, '');
     this.pos = pos;
+    if(this.name == 'king' && getDistanceBetweenPositions(old_pos, pos) == 2){
+      var amount = 1;
+      var rook = this.rightRook;
+      if(pos == this.leftMove){
+        amount = -1;
+        rook = this.leftRook;
+      }
+      rook.moveToPos(this.xAxisMath(old_pos, amount));
+      is_castle = true;
+    }
 
     _.each([self.color, enemy_color], function(color){
-      var pieces = self.board[color + 'Pieces'];
-      var e_color = pieces[0].getEnemyColor();
+      var pieces      = self.board[color + 'Pieces'];
+      var e_color     = pieces[0].getEnemyColor();
       var not_checked = true;
       _.each(pieces, function(piece){
         if(piece.isCheckingEnemyKing()){
@@ -260,15 +284,19 @@ _.extend(ChessPiece.prototype, {
         }
       });
       var enemy_in_check = self.board[e_color + 'InCheck'];
-      // if(self.name == 'queen' && pos.toUpperCase() == 'E2'){
-      //   debugger;
-      // }
+
       if(not_checked && enemy_in_check){
         self.board[e_color + 'InCheck'] = false;
       }
     });
-
-    this.board.turn = this.board.turn == 'white' ? 'black' : 'white';
+    if(this.getEnemyKing().myKingChecked() && !this.board[this.color + 'Won']){
+      
+      var did_i_win = this.isGameWon();
+      console.log('checking if won', did_i_win);
+    }
+    if(!is_castle){
+      this.board.turn = this.board.turn == 'white' ? 'black' : 'white';
+    }
     return this.moves;
   },
   moveTo: function(pos){
@@ -277,7 +305,7 @@ _.extend(ChessPiece.prototype, {
     }
   },
   enemyAtPos: function(pos, color){
-    var result = this.board.getPos(pos);
+    var result   = this.board.getPos(pos);
     var my_color = color || this.color;
     if(result && result.color != my_color){
       return result;
@@ -287,7 +315,7 @@ _.extend(ChessPiece.prototype, {
     var self = this;
     return _.reject(this.getValidMoves(), function(move){
       return !self.isValidPos(move);
-    })
+    });
   },
   isValidPos: function(pos){
     var valid_moves   = this.getValidMoves();
@@ -318,10 +346,10 @@ _.extend(ChessPiece.prototype, {
     }).indexOf(pos.toUpperCase()) >= 0);
   },
   posMath: function(arg1, arg2){
-    var pos = arg1;
+    var pos  = arg1;
     var nums = arg2;
     if(arguments.length == 1){
-      pos = this.pos;
+      pos  = this.pos;
       nums = arg1;
     }
     return String.fromCharCode(pos.charCodeAt(0) + nums[0]) + String.fromCharCode(pos.charCodeAt(1) + nums[1]);
@@ -333,15 +361,15 @@ _.extend(ChessPiece.prototype, {
     return (!result || has_enemy);
   },
   getValidMovesByPermutations: function(permutations, keep_checking, pos, color, board){
-    var position = pos || this.pos;
-    var my_color = color || this.color;
-    var valid_moves  = [];
+    var position    = pos || this.pos;
+    var my_color    = color || this.color;
+    var valid_moves = [];
     var new_pos, is_valid;
     var my_board = board || this.board;
     for(var i = 0; i < permutations.length; i++){
       new_pos = position;
       do {
-        new_pos = this.posMath(new_pos, permutations[i]);
+        new_pos  = this.posMath(new_pos, permutations[i]);
         is_valid = my_board.isValidPos(new_pos);
         if(is_valid){
           if(!keep_checking){
@@ -373,10 +401,10 @@ function Knight(color, pos, board){
 
 _.extend(Knight.prototype, ChessPiece.prototype, {
   getValidMoves: function(pos, color){
-    var my_color = color || this.color;
-    var position = (pos || this.pos).toUpperCase();
+    var my_color       = color || this.color;
+    var position       = (pos || this.pos).toUpperCase();
     var possible_moves = this.getPossibleMoves(position);
-    var valid_moves = [];
+    var valid_moves    = [];
     var result;
     for(var i = 0; i < possible_moves.length; i++){
 
@@ -388,10 +416,10 @@ _.extend(Knight.prototype, ChessPiece.prototype, {
     return valid_moves;
   },
   getPossibleMoves: function(pos, color){
-    var position = (pos || this.pos).toUpperCase();
-    var possibilities = [];
-    var permutations = [[2, 1], [-2, 1], [-2, -1], [2, -1]];
-    var new_pos = null;
+    var position             = (pos || this.pos).toUpperCase();
+    var possibilities        = [];
+    var permutations         = [[2, 1], [-2, 1], [-2, -1], [2, -1]];
+    var new_pos              = null;
     var inverse_permutations = [];
     var i,p;
     for(i = 0; i < permutations.length; i++){
@@ -457,16 +485,19 @@ _.extend(King.prototype, ChessPiece.prototype, {
   permutations: Queen.prototype.permutations,
   getValidMoves: function(){
     var enemy_king_pos = this.getEnemyKing().pos;
-    var valid_moves =  _.reject(permutatedValidMoves(false).apply(this, arguments), function(pos){
+    var valid_moves    = _.reject(permutatedValidMoves(false).apply(this, arguments), function(pos){
       return getDistanceBetweenPositions(pos, enemy_king_pos) < 2;
     });
+    this.rightMove = this.leftMove = this.rightRook = this.leftRook = false;
     if(!this.moves && !this.myKingChecked()){
-      var pos          = this.pos;
-      var row_col = this.board.positionToRowCol(pos);
-      var rightClear = true, leftClear = true, new_pos, rightMove, leftMove, piece;
-      for(var i = 1; i < 3; i++){
-        new_pos = this.board.rowColToPosition(row_col[0], row_col[1] + i);
-        if(!this.board.isPosClear(new_pos) || !this.positionSafeFromEnemies(new_pos)){
+      var pos        = this.pos;
+      var row_col    = this.board.positionToRowCol(pos);
+      var rightClear = true, leftClear = true, new_pos, rightMove, leftMove, piece, pos_not_clear, pos_not_safe;
+      for(var i      = 1; i < 3; i++){
+        new_pos       = this.board.rowColToPosition(row_col[0], row_col[1] + i);
+        pos_not_clear = !this.board.isPosClear(new_pos);
+        pos_not_safe  = !this.positionSafeFromEnemies(new_pos);
+        if(pos_not_safe || pos_not_clear){
           rightClear = false;
           break;
         }
@@ -476,13 +507,15 @@ _.extend(King.prototype, ChessPiece.prototype, {
       }
       if(rightClear){
 
-        for(i = 3; i < 6; i++){
+        for(i = 2; i < 6; i++){
           new_pos = this.board.rowColToPosition(row_col[0], row_col[1] + i);
           if(this.board.isValidPos(new_pos)){
             piece = this.board.getPos(new_pos);
-            if(piece && piece.moves && piece.name == 'rooke' && piece.color == this.color){
+            if(piece && !piece.moves && piece.name == 'rook' && piece.color == this.color){
               valid_moves.push(rightMove);
               this.rightMove = rightMove;
+              this.rightRook = piece;
+              break;
             }
           }
           else
@@ -492,8 +525,10 @@ _.extend(King.prototype, ChessPiece.prototype, {
         }
       }
       for(i = 1; i < 3; i++){
-        new_pos = this.board.rowColToPosition(row_col[0], row_col[1] - i);
-        if(!this.board.isPosClear(new_pos)){
+        new_pos       = this.board.rowColToPosition(row_col[0], row_col[1] - i);
+        pos_not_clear = !this.board.isPosClear(new_pos);
+        pos_not_safe  = !this.positionSafeFromEnemies(new_pos);
+        if(pos_not_safe || pos_not_clear){
           leftClear = false;
           break;
         }
@@ -503,13 +538,15 @@ _.extend(King.prototype, ChessPiece.prototype, {
       }
 
       if(leftClear){
-        for(i = 3; i < 6; i++){
+        for(i = 2; i < 6; i++){
           new_pos = this.board.rowColToPosition(row_col[0], row_col[1] - i);
           if(this.board.isValidPos(new_pos)){
             piece = this.board.getPos(new_pos);
-            if(piece && piece.moves && piece.name == 'rooke' && piece.color == this.color){
+            if(piece && !piece.moves && piece.name == 'rook' && piece.color == this.color){
               valid_moves.push(leftMove);
               this.leftMove = leftMove;
+              this.leftRook = piece;
+              break;
             }
           }
           else
@@ -558,19 +595,6 @@ _.extend(Pawn.prototype, ChessPiece.prototype, {
     return valid_moves;
   }
 });
-
-
-// board = new ChessBoard();
-// board.getPos('e2').moveTo('e4');
-// board.getPos('d7').moveTo('d5');
-// board.getPos('e4').moveTo('d5');
-// board.getPos('d8').moveTo('d5');
-// board.getPos('a2').moveTo('a3');
-// board.getPos('d5').moveTo('e4'); //check
-// board.getPos('d1').moveTo('e2'); //should stop check
-
-board = new ChessBoard();
-moves('e2, e3, e7, e6, e1, e2, e8, e7, e2, d3, e7, d6, d3, d4');
 
 function move(from, to, b){
   b = b || board;

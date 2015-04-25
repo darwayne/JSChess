@@ -1,12 +1,18 @@
 angular.module('Chess', [])
-  .controller('MainCtrl', function($filter){
+  .controller('MainCtrl', function($filter, $window, $scope, $timeout){
     var cell_position = $filter('cell_position');
     var self          = this;
+    $window.g = this;
     angular.extend(this, {
-      Board: new ChessBoard(),
+      Board:            new ChessBoard(),
       highlightedCells: [],
-      selectedPiece: false,
-      clickedCell: false,
+      selectedPiece:    false,
+      clickedCell:      false,
+      resetGame: function(){
+        self.selectedPiece    = self.clickedCell = false;
+        self.highlightedCells = [];
+        self.Board            = new ChessBoard();
+      },
       cellHasPiece: function(row, col){
         return !!self.Board.getPos(cell_position(row, col));
       },
@@ -48,7 +54,19 @@ angular.module('Chess', [])
       }
     });
 
-    console.log(self.Board);
+    $scope.$watchCollection('[game.Board.whiteInCheck, game.Board.blackInCheck]', function(n, o){
+      if(_.any(n)){
+        $timeout(function(){
+          if(_.any([self.Board.whiteWon, self.Board.blackWon])){
+            alert('Game Over!');
+          }
+          else
+          {
+            alert('Check!');
+          }
+        }, 0);
+      }
+    });
   })
   .filter('cell_position', function(){
     return function(row, col){
